@@ -1,0 +1,59 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@app/customer": [
+        "libs/customer/src"
+      ],
+      "@app/customer/*": [
+        "libs/customer/src/*"
+      ],
+      "@app/auth": [
+        "libs/auth/src"
+      ],
+      "@app/auth/*": [
+        "libs/auth/src/*"
+      ],
+      "@app/otp": [
+        "libs/otp/src"
+      ],
+      "@app/otp/*": [
+        "libs/otp/src/*"
+      ],
+      "@app/partner": [
+        "libs/partner/src"
+      ],
+      "@app/partner/*": [
+        "libs/partner/src/*"
+      ],
+      "@app/event": [
+        "libs/event/src"
+      ],
+      "@app/event/*": [
+        "libs/event/src/*"
+      ],
+      "@app/file-storage": [
+        "libs/file-storage/src"
+      ],
+      "@app/file-storage/*": [
+        "libs/file-storage/src/*"
+      ]
+    }
+  }
+}

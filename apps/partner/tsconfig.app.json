@@ -1,0 +1,35 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "outDir": "../../dist/apps/partner",
+    "paths": {
+      "@app/customer": [
+        "libs/customer/src"
+      ],
+      "@app/customer/*": [
+        "libs/customer/src/*"
+      ],
+      "@app/auth": [
+        "libs/auth/src"
+      ],
+      "@app/auth/*": [
+        "libs/auth/src/*"
+      ],
+      "@app/otp": [
+        "libs/otp/src"
+      ],
+      "@app/otp/*": [
+        "libs/otp/src/*"
+      ],
+      "@app/partner": [
+        "libs/partner/src"
+      ],
+      "@app/partner/*": [
+        "libs/partner/src/*"
+      ]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"],
+}
