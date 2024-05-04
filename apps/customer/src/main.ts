@@ -28,6 +28,6 @@ async function bootstrap() {
   );
   SwaggerModule.setup('api-docs', app, documentSwagger);
 
-  await app.listen(configService.get<number>('CUSTOMER_APP_PORT', 3000));
+  await app.listen(configService.get<number>('PORT', 3000));
 }
 bootstrap();
