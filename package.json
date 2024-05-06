@@ -103,6 +103,7 @@
     ],
     "moduleNameMapper": {
       "^@app/customer(|/.*)$": "<rootDir>/libs/customer/src/$1",
+      "^@app/partner(|/.*)$": "<rootDir>/libs/partner/src/$1",
       "^@app/auth(|/.*)$": "<rootDir>/libs/auth/src/$1",
       "^@app/otp(|/.*)$": "<rootDir>/libs/otp/src/$1",
       "^@app/event(|/.*)$": "<rootDir>/libs/event/src/$1",

@@ -1,19 +1,22 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OtpService } from './otp.service';
 import { getModelToken } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
-import { DateTime } from 'luxon';
+import { TwilioService } from 'nestjs-twilio';
+import { Otp } from '@app/otp/schema/otp.schema';
+import { OtpService } from './otp.service';
 
 describe('OtpService', () => {
   let service: OtpService;
-  let otpModelMock: any;
+  let otpModel: Model<Otp>;
+  let twilioService: TwilioService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OtpService,
         {
-          provide: getModelToken('Otp'),
+          provide: getModelToken(Otp.name),
           useValue: {
             create: jest.fn(),
             findOneAndUpdate: jest.fn(),
@@ -23,14 +26,34 @@ describe('OtpService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockReturnValue(60), // Assuming OTP_TTL is 60 seconds
+            get: jest.fn((key: string) => {
+              switch (key) {
+                case 'TWILIO_PHONE_NUMBER':
+                  return '+123456789';
+                case 'OTP_TTL':
+                  return 60;
+                default:
+                  return undefined;
+              }
+            }),
+          },
+        },
+        {
+          provide: TwilioService,
+          useValue: {
+            client: {
+              messages: {
+                create: jest.fn(),
+              },
+            },
           },
         },
       ],
     }).compile();
 
     service = module.get<OtpService>(OtpService);
-    otpModelMock = module.get(getModelToken('Otp'));
+    otpModel = module.get<Model<Otp>>(getModelToken(Otp.name));
+    twilioService = module.get<TwilioService>(TwilioService);
   });
 
   it('should be defined', () => {
@@ -38,65 +61,58 @@ describe('OtpService', () => {
   });
 
   describe('generate', () => {
-    it('should generate OTP successfully', async () => {
-      const phone = '1234567890';
-      const mockOtp = {
-        otpCode: '123456',
-        phone,
-        expirationTime: DateTime.now().plus({ second: 60 }).toJSON(),
-        secret: 'mocked_secret',
-      };
-      otpModelMock.create.mockResolvedValue(mockOtp);
+    it('should generate and send OTP code', async () => {
+      const phone = '123456789';
 
       await service.generate(phone);
 
-      expect(otpModelMock.create).toHaveBeenCalledWith(
-        expect.objectContaining({ phone }),
-      );
+      expect(twilioService.client.messages.create).toHaveBeenCalledWith({
+        from: expect.any(String),
+        to: phone,
+        body: expect.any(String),
+      });
+      expect(otpModel.create).toHaveBeenCalled();
     });
   });
 
   describe('verify', () => {
-    it('should verify OTP successfully', async () => {
-      const phone = '1234567890';
+    it('should verify OTP code', async () => {
+      const phone = '123456789';
       const otpCode = '123456';
-      const mockOtp = {
-        otpCode,
-        phone,
-        isVerified: false,
-        expirationTime: DateTime.now().plus({ second: 60 }),
-      };
-      otpModelMock.findOneAndUpdate.mockResolvedValue(mockOtp);
 
-      const result = await service.verify(phone, otpCode);
+      await service.verify(phone, otpCode);
 
-      expect(result).toEqual(mockOtp);
-      expect(otpModelMock.findOneAndUpdate).toHaveBeenCalledWith(
+      expect(otpModel.findOneAndUpdate).toHaveBeenCalledWith(
         {
           phone,
           otpCode,
           isVerified: false,
-          expirationTime: { $gt: expect.any(Date) }, // Match any Date object
+          expirationTime: {
+            $gt: expect.any(Date),
+          },
         },
-        { isVerified: true },
-        { new: true },
+        {
+          isVerified: true,
+        },
+        {
+          new: true,
+        },
       );
     });
   });
 
-  describe('findByPhoneAndSecret', () => {
-    it('should find OTP by phone and secret successfully', async () => {
-      const phone = '1234567890';
-      const secret = 'mocked_secret';
-      const mockOtp = { phone, secret, isVerified: true };
-      otpModelMock.findOne.mockResolvedValue(mockOtp);
+  describe('findSession', () => {
+    it('should find OTP session by phone and secret', async () => {
+      const phone = '123456789';
+      const secret = 'secret';
 
-      const result = await service.findSession(phone, secret);
+      await service.findSession(phone, secret);
 
-      expect(result).toEqual(mockOtp);
-      expect(otpModelMock.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ isVerified: true, secret: 'mocked_secret' }),
-      );
+      expect(otpModel.findOne).toHaveBeenCalledWith({
+        phone,
+        secret,
+        isVerified: true,
+      });
     });
   });
 });

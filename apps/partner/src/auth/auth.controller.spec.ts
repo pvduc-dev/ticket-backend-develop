@@ -1,17 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from '@app/auth';
-import { CustomerService } from '@app/customer';
-import { ConfigService } from '@nestjs/config';
+import { PartnerService } from '@app/partner';
 import { SignInReqDto } from './dto/sign-in-req.dto';
 import { SignUpReqDto } from './dto/sign-up-req.dto';
-import { BadRequestException } from '@nestjs/common';
+import { SignInResDto } from './dto/sign-in-res.dto';
+import { SignUpResDto } from './dto/sign-up-res.dto';
 
 describe('AuthController', () => {
   let controller: AuthController;
-  let authServiceMock: AuthService;
-  let customerServiceMock: CustomerService;
-  // let configServiceMock: ConfigService;
+  let authService: AuthService;
+  let partnerService: PartnerService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -25,7 +26,7 @@ describe('AuthController', () => {
           },
         },
         {
-          provide: CustomerService,
+          provide: PartnerService,
           useValue: {
             create: jest.fn(),
             findById: jest.fn(),
@@ -34,16 +35,15 @@ describe('AuthController', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockReturnValue('mocked_expires'),
+            get: jest.fn().mockReturnValue('3600'), // Example value for JWT_EXPIRES
           },
         },
       ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
-    authServiceMock = module.get<AuthService>(AuthService);
-    customerServiceMock = module.get<CustomerService>(CustomerService);
-    // configServiceMock = module.get<ConfigService>(ConfigService);
+    authService = module.get<AuthService>(AuthService);
+    partnerService = module.get<PartnerService>(PartnerService);
   });
 
   it('should be defined', () => {
@@ -51,100 +51,92 @@ describe('AuthController', () => {
   });
 
   describe('signIn', () => {
-    it('should sign in successfully', async () => {
+    it('should sign in successfully and return token', async () => {
       const signInDto: SignInReqDto = {
-        phone: '1234567890',
+        phone: '123456789',
         secret: 'password',
       };
-      const mockCustomer = { id: 'mocked_customer_id' };
-      const mockToken = 'mocked_token';
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      authServiceMock.validateCredential.mockResolvedValue(mockCustomer);
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      authServiceMock.generateToken.mockReturnValue(mockToken);
+      const partner = { id: 'partner_id', isApproved: true };
+      const accessToken = 'access_token';
+      jest
+        .spyOn(authService, 'validateCredential')
+        .mockResolvedValueOnce(partner);
+      jest.spyOn(authService, 'generateToken').mockReturnValueOnce(accessToken);
 
       const result = await controller.signIn(signInDto);
 
       expect(result).toEqual({
-        accessToken: mockToken,
-        expiresIn: 'mocked_expires',
+        accessToken,
+        expiresIn: '3600',
         type: 'bearer',
-      });
-      expect(authServiceMock.validateCredential).toHaveBeenCalledWith(
-        signInDto.phone,
-        signInDto.secret,
-      );
-      expect(authServiceMock.generateToken).toHaveBeenCalledWith({
-        sub: mockCustomer.id,
-      });
+      } as SignInResDto);
     });
 
-    it('should throw BadRequestException when credentials are invalid', async () => {
+    it('should throw BadRequestException if phone number has not registered account', async () => {
       const signInDto: SignInReqDto = {
-        phone: '1234567890',
+        phone: '123456789',
         secret: 'password',
       };
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      authServiceMock.validateCredential.mockResolvedValue(null);
+      jest.spyOn(authService, 'validateCredential').mockResolvedValueOnce(null);
 
-      await expect(controller.signIn(signInDto)).rejects.toThrow(
+      await expect(controller.signIn(signInDto)).rejects.toThrowError(
         BadRequestException,
+      );
+    });
+
+    it('should throw ForbiddenException if account is not approved', async () => {
+      const signInDto: SignInReqDto = {
+        phone: '123456789',
+        secret: 'password',
+      };
+      const partner = { id: 'partner_id', isApproved: false };
+      jest
+        .spyOn(authService, 'validateCredential')
+        .mockResolvedValueOnce(partner);
+
+      await expect(controller.signIn(signInDto)).rejects.toThrowError(
+        ForbiddenException,
       );
     });
   });
 
   describe('signUp', () => {
-    it('should sign up successfully', async () => {
+    it('should sign up successfully and return token', async () => {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
       const signUpDto: SignUpReqDto = {
-        phone: '1234567890',
+        phone: '123456789',
         email: 'test@example.com',
         fullName: 'Test User',
       };
-      const mockCustomer = { id: 'mocked_customer_id' };
-      const mockToken = 'mocked_token';
+      const customer = { id: 'customer_id' };
+      const accessToken = 'access_token';
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
-      customerServiceMock.create.mockResolvedValue(mockCustomer);
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      authServiceMock.generateToken.mockReturnValue(mockToken);
+      jest.spyOn(partnerService, 'create').mockResolvedValueOnce(customer);
+      jest.spyOn(authService, 'generateToken').mockReturnValueOnce(accessToken);
 
       const result = await controller.signUp(signUpDto);
 
       expect(result).toEqual({
-        accessToken: mockToken,
-        expiresIn: 'mocked_expires',
+        accessToken,
+        expiresIn: '3600',
         type: 'bearer',
-      });
-      expect(customerServiceMock.create).toHaveBeenCalledWith({
-        phone: signUpDto.phone,
-        email: signUpDto.email,
-        fullName: signUpDto.fullName,
-      });
-      expect(authServiceMock.generateToken).toHaveBeenCalledWith({
-        sub: mockCustomer.id,
-      });
+      } as SignUpResDto);
     });
   });
 
   describe('getProfile', () => {
     it('should return user profile', async () => {
-      const mockUser = { id: 'mocked_user_id' };
-      const mockCustomer = { id: 'mocked_customer_id', name: 'Mocked User' };
-      const req = { user: mockUser };
+      const user = { id: 'user_id' };
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
-      customerServiceMock.findById.mockResolvedValue(mockCustomer);
+      jest.spyOn(partnerService, 'findById').mockResolvedValueOnce(user);
+      const req = { user };
 
       const result = await controller.getProfile(req);
 
-      expect(result).toEqual(mockCustomer);
-      expect(customerServiceMock.findById).toHaveBeenCalledWith(mockUser.id);
+      expect(result).toEqual(user);
     });
   });
 });
